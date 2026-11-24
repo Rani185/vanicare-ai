@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VaniCare AI — Vernacular Voice Health Triage</title>
+  <script src="https://tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 18px rgba(20, 184, 166, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+    }
+    .recording { animation: pulse-ring 1.5s infinite; background-color: #ef4444 !important; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+  <header class="bg-teal-700 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-2">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">
+          🩺 VaniCare AI
+          <span class="text-xs bg-teal-900 text-teal-200 px-2 py-0.5 rounded-full font-normal">Rural Health Triage</span>
+        </h1>
+        <p class="text-xs text-teal-100">Vernacular Voice-to-Clinical Triage for Primary Health Centres (PHCs)</p>
+      </div>
+      <div class="text-right text-xs text-teal-100">
+        <span class="bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-1 rounded-full">● Offline-Ready PWA Mode</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Patient / ASHA Kiosk -->
+    <section class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-3 py-1 rounded-full">1. Patient / ASHA Kiosk</span>
+          <select id="langSelect" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 font-medium">
+            <option value="hi-IN">Hindi / Bhojpuri / Maithili (hi-IN)</option>
+            <option value="en-IN">Indian English (en-IN)</option>
+          </select>
+        </div>
+
+        <h2 class="text-lg font-bold text-slate-900 mb-1">Apni Takleef Bolein (Speak Symptoms)</h2>
+        <p class="text-xs text-slate-500 mb-5">Tap the mic and describe symptoms in your local dialect, or test with sample vernacular inputs below.</p>
+
+        <div class="flex flex-col items-center my-4">
+          <button id="micBtn" onclick="toggleRecording()" class="w-24 h-24 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex flex-col items-center justify-center shadow-lg transition cursor-pointer">
+            <span class="text-3xl">🎙️</span>
+            <span id="micLabel" class="text-[11px] font-semibold mt-1">TAP TO SPEAK</span>
+          </button>
+          <p id="statusText" class="text-xs text-slate-500 mt-3 font-medium">Ready to listen...</p>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
+          <p class="text-[11px] font-semibold text-slate-600 mb-2">⚡ Quick Test (Sample Rural Dialect Inputs):</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="loadSample('bhojpuri')" class="text-xs bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 rounded-lg font-medium">
+              Bhojpuri (Urgent Chest Pain)
+            </button>
+            <button onclick="loadSample('maithili')" class="text-xs bg-white hover:bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-lg font-medium">
+              Maithili (3-Day High Fever)
+            </button>
+            <button onclick="loadSample('hindi')" class="text-xs bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-medium">
+              Hindi (Mild Cold & Cough)
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Patient Name / Age (Optional)</label>
+            <input id="patientName" type="text" placeholder="e.g., Ramesh Kumar, 54M" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-600" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Captured Vernacular Speech / Text</label>
+            <textarea id="transcriptInput" rows="3" placeholder="Spoken symptoms will appear here (or type manually)..." class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:outline-none focus:border-teal-600"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="analyzeSymptoms()" class="mt-5 w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl shadow transition cursor-pointer">
+        ✨ Generate Clinical Triage Card →
+      </button>
+    </section>
+
+    <!-- Doctor's Live Triage Queue -->
+    <section class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">2. Doctor's Live Priority Queue</span>
+          <h2 class="text-lg font-bold text-slate-900 mt-2">Structured Clinical Summaries (English)</h2>
+        </div>
+        <div class="flex gap-2 text-xs font-semibold">
+          <span class="bg-rose-100 text-rose-800 px-2.5 py-1 rounded-md">RED: Immediate</span>
+          <span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md">YELLOW: Priority</span>
+          <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md">GREEN: Routine</span>
+        </div>
+      </div>
+
+      <div id="triageQueue" class="space-y-4">
+        <div class="border-l-4 border-rose-600 bg-rose-50/40 border border-rose-200 rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <span class="bg-rose-600 text-white text-[11px] font-bold px-2.5 py-0.5 rounded uppercase">RED — CRITICAL TRIAGE</span>
+              <h3 class="font-bold text-slate-900 text-base mt-1">Token #01 • Savitri Devi (58F)</h3>
+            </div>
+            <span class="text-xs text-slate-500">Dialect: Bhojpuri</span>
+          </div>
+          <p class="text-xs italic text-slate-600 bg-white p-2 rounded border border-slate-200 mb-2">
+            "Kal raat se chhati mein bahut dard ba aur saans phoolat ba, pasina bhi aawat ba."
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div class="bg-white p-2 rounded border border-slate-100">
+              <span class="text-slate-400 block">Chief Complaints</span>
+              <strong class="text-slate-800">Chest pain, Dyspnea, Diaphoresis</strong>
+            </div>
+            <div class="bg-white p-2 rounded border border-slate-100">
+              <span class="text-slate-400 block">Duration</span>
+              <strong class="text-slate-800">Since last night (~12 hrs)</strong>
+            </div>
+            <div class="bg-white p-2 rounded border border-slate-100">
+              <span class="text-slate-400 block">Suggested Action</span>
+              <strong class="text-rose-700">Immediate ECG & Vitals Check</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-400 mt-6 pt-3 border-t border-slate-100">
+        ⚠️ Clinical Decision Support Disclaimer: VaniCare AI assists with vernacular translation and queue prioritization. All medical diagnoses and prescriptions must be made by a licensed physician.
+      </p>
+    </section>
+
+  </main>
+
+  <script>
+    let recognition;
+    let isRecording = false;
+    let tokenCounter = 2;
+
+    const samples = {
+      bhojpuri: {
+        name: "Ramprasad Yadav, 62M",
+        dialect: "Bhojpuri",
+        text: "Bihaan se chhati ke baayein taraf tej dard ba aur chakkar aawat ba, saans lewe mein dikkat ho rahal ba."
+      },
+      maithili: {
+        name: "Sunita Jha, 34F",
+        dialect: "Maithili",
+        text: "Teen din se tej bukhar aa matha mein dard aich, deh hath sab tutait aich."
+      },
+      hindi: {
+        name: "Mohan Lal, 26M",
+        dialect: "Hindi",
+        text: "Do din se halka zukam aur sukhi khansi hai, gala thoda kharab lag raha hai."
+      }
+    };
+
+    function loadSample(type) {
+      const s = samples[type];
+      document.getElementById("patientName").value = s.name;
+      document.getElementById("transcriptInput").value = s.text;
+      document.getElementById("statusText").innerText = `Loaded ${s.dialect} sample input.`;
+    }
+
+    function toggleRecording() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Your browser does not support live mic speech recognition. Please use Chrome or click one of the Sample Dialect buttons!");
+        return;
+      }
+
+      if (isRecording) {
+        recognition.stop();
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = document.getElementById("langSelect").value;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        document.getElementById("micBtn").classList.add("recording");
+        document.getElementById("micLabel").innerText = "LISTENING...";
+        document.getElementById("statusText").innerText = "Speak clearly into your microphone...";
+      };
+
+      recognition.onresult = (event) => {
+        const speechText = event.results[0][0].transcript;
+        document.getElementById("transcriptInput").value = speechText;
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VaniCare AI — Vernacular Voice Health Triage</title>
+  <script src="https://tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 18px rgba(20, 184, 166, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+    }
+    .recording { animation: pulse-ring 1.5s infinite; background-color: #ef4444 !important; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+  <header class="bg-teal-700 text-white shadow-md">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-2">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">
+          🩺 VaniCare AI
+          <span class="text-xs bg-teal-900 text-teal-200 px-2 py-0.5 rounded-full font-normal">Rural Health Triage</span>
+        </h1>
+        <p class="text-xs text-teal-100">Vernacular Voice-to-Clinical Triage for Primary Health Centres (PHCs)</p>
+      </div>
+      <div class="text-right text-xs text-teal-100">
+        <span class="bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-1 rounded-full">● Offline-Ready PWA Mode</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Patient / ASHA Kiosk -->
+    <section class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+      <div>
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-3 py-1 rounded-full">1. Patient / ASHA Kiosk</span>
+          <select id="langSelect" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 font-medium">
+            <option value="hi-IN">Hindi / Bhojpuri / Maithili (hi-IN)</option>
+            <option value="en-IN">Indian English (en-IN)</option>
+          </select>
+        </div>
+
+        <h2 class="text-lg font-bold text-slate-900 mb-1">Apni Takleef Bolein (Speak Symptoms)</h2>
+        <p class="text-xs text-slate-500 mb-5">Tap the mic and describe symptoms in your local dialect, or test with sample vernacular inputs below.</p>
+
+        <div class="flex flex-col items-center my-4">
+          <button id="micBtn" onclick="toggleRecording()" class="w-24 h-24 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex flex-col items-center justify-center shadow-lg transition cursor-pointer">
+            <span class="text-3xl">🎙️</span>
+            <span id="micLabel" class="text-[11px] font-semibold mt-1">TAP TO SPEAK</span>
+          </button>
+          <p id="statusText" class="text-xs text-slate-500 mt-3 font-medium">Ready to listen...</p>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
+          <p class="text-[11px] font-semibold text-slate-600 mb-2">⚡ Quick Test (Sample Rural Dialect Inputs):</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="loadSample('bhojpuri')" class="text-xs bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 rounded-lg font-medium">
+              Bhojpuri (Urgent Chest Pain)
+            </button>
+            <button onclick="loadSample('maithili')" class="text-xs bg-white hover:bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-lg font-medium">
+              Maithili (3-Day High Fever)
+            </button>
+            <button onclick="loadSample('hindi')" class="text-xs bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg font-medium">
+              Hindi (Mild Cold & Cough)
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Patient Name / Age (Optional)</label>
+            <input id="patientName" type="text" placeholder="e.g., Ramesh Kumar, 54M" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-teal-600" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Captured Vernacular Speech / Text</label>
+            <textarea id="transcriptInput" rows="3" placeholder="Spoken symptoms will appear here (or type manually)..." class="w-full text-sm border border-slate-300 rounded-lg p-3 focus:outline-none focus:border-teal-600"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="analyzeSymptoms()" class="mt-5 w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl shadow transition cursor-pointer">
+        ✨ Generate Clinical Triage Card →
+      </button>
+    </section>
+
+    <!-- Doctor's Live Triage Queue -->
+    <section class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">2. Doctor's Live Priority Queue</span>
+          <h2 class="text-lg font-bold text-slate-900 mt-2">Structured Clinical Summaries (English)</h2>
+        </div>
+        <div class="flex gap-2 text-xs font-semibold">
+          <span class="bg-rose-100 text-rose-800 px-2.5 py-1 rounded-md">RED: Immediate</span>
+          <span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md">YELLOW: Priority</span>
+          <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md">GREEN: Routine</span>
+        </div>
+      </div>
+
+      <div id="triageQueue" class="space-y-4">
+        <div class="border-l-4 border-rose-600 bg-rose-50/40 border border-rose-200 rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <span class="bg-rose-600 text-white text-[11px] font-bold px-2.5 py-0.5 rounded uppercase">RED — CRITICAL TRIAGE</span>
+              <h3 class="font-bold text-slate-900 text-base mt-1">Token #01 • Savitri Devi (58F)</h3>
+            </div>
+            <span class="text-xs text-slate-500">Dialect: Bhojpuri</span>
+          </div>
+          <p class="text-xs italic text-slate-600 bg-white p-2 rounded border border-slate-200 mb-2">
+            "Kal raat se chhati mein bahut dard ba aur saans phoolat ba, pasina bhi aawat ba."
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div class="bg-white p-2 rounded border border-slate-100">
+              <span class="text-slate-400 block">Chief Complaints</span>
+              <strong class="text-slate-800">Chest pain, Dyspnea, Diaphoresis</strong>
+            </div>
+            <div class="bg-white p-2 rounded border border-slate-100">
+              <span class="text-slate-400 block">Duration</span>
+              <strong class="text-slate-800">Since last night (~12 hrs)</strong>
+            </div>
+            <div class="bg-white p-2 rounded border border-slate-100">
+              <span class="text-slate-400 block">Suggested Action</span>
+              <strong class="text-rose-700">Immediate ECG & Vitals Check</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-400 mt-6 pt-3 border-t border-slate-100">
+        ⚠️ Clinical Decision Support Disclaimer: VaniCare AI assists with vernacular translation and queue prioritization. All medical diagnoses and prescriptions must be made by a licensed physician.
+      </p>
+    </section>
+
+  </main>
+
+  <script>
+    let recognition;
+    let isRecording = false;
+    let tokenCounter = 2;
+
+    const samples = {
+      bhojpuri: {
+        name: "Ramprasad Yadav, 62M",
+        dialect: "Bhojpuri",
+        text: "Bihaan se chhati ke baayein taraf tej dard ba aur chakkar aawat ba, saans lewe mein dikkat ho rahal ba."
+      },
+      maithili: {
+        name: "Sunita Jha, 34F",
+        dialect: "Maithili",
+        text: "Teen din se tej bukhar aa matha mein dard aich, deh hath sab tutait aich."
+      },
+      hindi: {
+        name: "Mohan Lal, 26M",
+        dialect: "Hindi",
+        text: "Do din se halka zukam aur sukhi khansi hai, gala thoda kharab lag raha hai."
+      }
+    };
+
+    function loadSample(type) {
+      const s = samples[type];
+      document.getElementById("patientName").value = s.name;
+      document.getElementById("transcriptInput").value = s.text;
+      document.getElementById("statusText").innerText = `Loaded ${s.dialect} sample input.`;
+    }
+
+    function toggleRecording() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Your browser does not support live mic speech recognition. Please use Chrome or click one of the Sample Dialect buttons!");
+        return;
+      }
+
+      if (isRecording) {
+        recognition.stop();
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = document.getElementById("langSelect").value;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        document.getElementById("micBtn").classList.add("recording");
+        document.getElementById("micLabel").innerText = "LISTENING...";
+        document.getElementById("statusText").innerText = "Speak clearly into your microphone...";
+      };
+
+      recognition.onresult = (event) => {
+        const speechText = event.results[0][0].transcript;
+        document.getElementById("transcriptInput").value = speechText;
+    
