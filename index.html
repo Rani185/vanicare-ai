@@ -54,7 +54,6 @@
   </header>
 
   <div class="container">
-    <!-- Left Kiosk -->
     <div class="card">
       <span class="pill">1. Patient / ASHA Kiosk</span>
       <h2>Apni Takleef Bolein</h2>
@@ -89,7 +88,6 @@
       <button class="submit-btn" onclick="analyzeSymptoms()">✨ Generate Clinical Triage Card →</button>
     </div>
 
-    <!-- Right Doctor Queue -->
     <div class="card">
       <span class="pill pill-indigo">2. Doctor's Live Priority Queue</span>
       <h2>Structured Clinical Summaries</h2>
@@ -123,6 +121,13 @@
       maithili: { name: "Sunita Jha, 34F", text: "Teen din se tej bukhar aa matha mein dard aich, deh hath tutait aich." },
       hindi: { name: "Mohan Lal, 26M", text: "Do din se halka zukam aur sukhi khansi hai." }
     };
+    function speakOut(msg) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(msg);
+        window.speechSynthesis.speak(u);
+      }
+    }
     function loadSample(type) {
       document.getElementById("patientName").value = samples[type].name;
       document.getElementById("transcriptInput").value = samples[type].text;
@@ -130,12 +135,13 @@
     }
     function toggleRecording() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) { alert("Use Chrome or tap a Sample button below!"); return; }
+      if (!SR) { alert("Use Google Chrome or tap a Sample button below!"); return; }
       if (isRecording) { recognition.stop(); return; }
       recognition = new SR();
       recognition.lang = document.getElementById("langSelect").value;
       recognition.onstart = () => { isRecording = true; document.getElementById("micBtn").classList.add("recording"); document.getElementById("micLabel").innerText = "LISTENING"; document.getElementById("statusText").innerText = "Speak now..."; };
-      recognition.onresult = (e) => { document.getElementById("transcriptInput").value = e.results.transcript; document.getElementById("statusText").innerText = "Voice captured!"; };
+      recognition.onresult = (e) => { document.getElementById("transcriptInput").value = e.results[0][0].transcript; document.getElementById("statusText").innerText = "Voice captured!"; };
+      recognition.onerror = (e) => { document.getElementById("statusText").innerText = "Allow Mic in Chrome settings or use Sample buttons."; };
       recognition.onend = () => { isRecording = false; document.getElementById("micBtn").classList.remove("recording"); document.getElementById("micLabel").innerText = "TAP TO SPEAK"; };
       recognition.start();
     }
@@ -145,8 +151,4 @@
       const name = document.getElementById("patientName").value.trim() || "Walk-in Patient";
       const low = raw.toLowerCase();
       let level = "GREEN", badge = "GREEN — ROUTINE", cardCls = "t-green", bgCls = "bg-green", comp = [], action = "Standard OPD", dialect = "Hindi";
-      if (low.includes("ba") || low.includes("bihaan")) dialect = "Bhojpuri";
-      if (low.includes("aich") || low.includes("tutait")) dialect = "Maithili";
-      if (low.includes("chhati") || low.includes("chest") || low.includes("dard")) comp.push("Chest/Body Pain");
-      if (low.includes("saans")) comp.push("Shortness of Breath");
-    
+      
