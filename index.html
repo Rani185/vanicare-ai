@@ -66,16 +66,16 @@
       </select>
 
       <div class="mic-wrap">
-        <button id="micBtn" onclick="toggleRecording()">🎙️<span id="micLabel">TAP TO SPEAK</span></button>
+        <button id="micBtn" type="button" onclick="toggleRecording()">🎙️<span id="micLabel">TAP TO SPEAK</span></button>
         <div id="statusText">Ready to listen...</div>
       </div>
 
       <div class="sample-box">
         <p>⚡ Quick Test (Sample Rural Dialects):</p>
         <div class="btn-row">
-          <button class="sample-btn b-red" onclick="loadSample('bhojpuri')">Bhojpuri (Chest Pain)</button>
-          <button class="sample-btn b-amber" onclick="loadSample('maithili')">Maithili (High Fever)</button>
-          <button class="sample-btn b-green" onclick="loadSample('hindi')">Hindi (Mild Cold)</button>
+          <button type="button" class="sample-btn b-red" onclick="loadSample('bhojpuri')">Bhojpuri (Chest Pain)</button>
+          <button type="button" class="sample-btn b-amber" onclick="loadSample('maithili')">Maithili (High Fever)</button>
+          <button type="button" class="sample-btn b-green" onclick="loadSample('hindi')">Hindi (Mild Cold)</button>
         </div>
       </div>
 
@@ -85,7 +85,7 @@
       <label>Captured Speech / Symptoms</label>
       <textarea id="transcriptInput" rows="3" placeholder="Spoken symptoms appear here..."></textarea>
 
-      <button class="submit-btn" onclick="analyzeSymptoms()">✨ Generate Clinical Triage Card →</button>
+      <button type="button" class="submit-btn" onclick="analyzeSymptoms()">✨ Generate Clinical Triage Card →</button>
     </div>
 
     <div class="card">
@@ -115,40 +115,72 @@
   </div>
 
   <script>
-    let recognition, isRecording = false, tokenCounter = 2;
-    const samples = {
+    var recognition = null;
+    var isRecording = false;
+    var tokenCounter = 2;
+
+    var samples = {
       bhojpuri: { name: "Ramprasad Yadav, 62M", text: "Bihaan se chhati ke baayein taraf tej dard ba aur chakkar aawat ba, saans phoolat ba." },
       maithili: { name: "Sunita Jha, 34F", text: "Teen din se tej bukhar aa matha mein dard aich, deh hath tutait aich." },
       hindi: { name: "Mohan Lal, 26M", text: "Do din se halka zukam aur sukhi khansi hai." }
     };
+
     function speakOut(msg) {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(msg);
-        window.speechSynthesis.speak(u);
-      }
+      try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          var u = new SpeechSynthesisUtterance(msg);
+          window.speechSynthesis.speak(u);
+        }
+      } catch (err) {}
     }
+
     function loadSample(type) {
       document.getElementById("patientName").value = samples[type].name;
       document.getElementById("transcriptInput").value = samples[type].text;
-      document.getElementById("statusText").innerText = "Sample loaded! Tap 'Generate Clinical Triage Card'.";
+      document.getElementById("statusText").innerText = "Sample loaded! Now tap Generate button.";
     }
+
     function toggleRecording() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) { alert("Use Google Chrome or tap a Sample button below!"); return; }
-      if (isRecording) { recognition.stop(); return; }
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        document.getElementById("statusText").innerText = "Mic not supported here. Use Sample buttons or keyboard mic!";
+        return;
+      }
+      if (isRecording && recognition) {
+        recognition.stop();
+        return;
+      }
       recognition = new SR();
       recognition.lang = document.getElementById("langSelect").value;
-      recognition.onstart = () => { isRecording = true; document.getElementById("micBtn").classList.add("recording"); document.getElementById("micLabel").innerText = "LISTENING"; document.getElementById("statusText").innerText = "Speak now..."; };
-      recognition.onresult = (e) => { document.getElementById("transcriptInput").value = e.results[0][0].transcript; document.getElementById("statusText").innerText = "Voice captured!"; };
-      recognition.onerror = (e) => { document.getElementById("statusText").innerText = "Allow Mic in Chrome settings or use Sample buttons."; };
-      recognition.onend = () => { isRecording = false; document.getElementById("micBtn").classList.remove("recording"); document.getElementById("micLabel").innerText = "TAP TO SPEAK"; };
+      recognition.interimResults = false;
+
+      recognition.onstart = function() {
+        isRecording = true;
+        document.getElementById("micBtn").classList.add("recording");
+        document.getElementById("micLabel").innerText = "LISTENING";
+        document.getElementById("statusText").innerText = "Speak now...";
+      };
+
+      recognition.onresult = function(event) {
+        var firstResult = event.results.item(0);
+        var alt = firstResult.item(0);
+        document.getElementById("transcriptInput").value = alt.transcript;
+        document.getElementById("statusText").innerText = "Voice captured!";
+      };
+
+      recognition.onerror = function(event) {
+        document.getElementById("statusText").innerText = "Mic blocked (" + event.error + "). Use Sample buttons!";
+      };
+
+      recognition.onend = function() {
+        isRecording = false;
+        document.getElementById("micBtn").classList.remove("recording");
+        document.getElementById("micLabel").innerText = "TAP TO SPEAK";
+      };
+
       recognition.start();
     }
+
     function analyzeSymptoms() {
-      const raw = document.getElementById("transcriptInput").value.trim();
-      if (!raw) { alert("Please speak or tap a sample button first."); return; }
-      const name = document.getElementById("patientName").value.trim() || "Walk-in Patient";
-      const low = raw.toLowerCase();
-      let level = "GREEN", badge = "GREEN — ROUTINE", cardCls = "t-green", bgCls = "bg-green", comp = [], action = "Standard OPD", dialect = "Hindi";
       
